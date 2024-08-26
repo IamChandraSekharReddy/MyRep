@@ -1,0 +1,173 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+from datetime import datetime
+import threading
+import time
+
+class TodoApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Enhanced To-Do List App with Reminders")
+
+        # Set a modern theme
+        self.style = ttk.Style(self.root)
+        self.style.theme_use('clam')
+
+        # List to store tasks with details
+        self.tasks = []
+
+        # Create the main frame
+        self.main_frame = ttk.Frame(root, padding="10")
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Listbox to display tasks
+        self.listbox = tk.Listbox(
+            self.main_frame, 
+            width=50, 
+            height=10, 
+            font=('Arial', 14), 
+            bd=0, 
+            selectbackground="gray", 
+            activestyle="none"
+        )
+        self.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=10, padx=5)
+
+        # Scrollbar for the listbox
+        self.scrollbar = ttk.Scrollbar(self.main_frame)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.BOTH)
+
+        self.listbox.config(yscrollcommand=self.scrollbar.set)
+        self.scrollbar.config(command=self.listbox.yview)
+
+        # Entry box to add new tasks
+        self.task_entry = ttk.Entry(
+            root, 
+            font=('Arial', 14), 
+            width=42
+        )
+        self.task_entry.pack(pady=5)
+        self.task_entry.insert(0, "Enter task description")
+
+        # Frame for time picker
+        self.time_frame = ttk.Frame(root)
+        self.time_frame.pack(pady=5)
+
+        ttk.Label(self.time_frame, text="Set Reminder Time: ", font=('Arial', 12)).pack(side=tk.LEFT)
+
+        # Hour combobox
+        self.hour_combobox = ttk.Combobox(
+            self.time_frame, 
+            values=[f"{i:02d}" for i in range(24)], 
+            width=3, 
+            font=('Arial', 14)
+        )
+        self.hour_combobox.pack(side=tk.LEFT)
+        self.hour_combobox.set("HH")
+
+        # Minute combobox
+        self.minute_combobox = ttk.Combobox(
+            self.time_frame, 
+            values=[f"{i:02d}" for i in range(60)], 
+            width=3, 
+            font=('Arial', 14)
+        )
+        self.minute_combobox.pack(side=tk.LEFT)
+        self.minute_combobox.set("MM")
+
+        # Button to add tasks
+        self.add_button = ttk.Button(
+            root, 
+            text="Add Task", 
+            command=self.add_task
+        )
+        self.add_button.pack(pady=10)
+
+        # Button to mark tasks as completed
+        self.complete_button = ttk.Button(
+            root, 
+            text="Complete Task", 
+            command=self.complete_task
+        )
+        self.complete_button.pack(pady=5)
+
+        # Button to delete tasks
+        self.delete_button = ttk.Button(
+            root, 
+            text="Delete Task", 
+            command=self.delete_task
+        )
+        self.delete_button.pack(pady=5)
+
+        # Start the reminder checking
+        self.check_reminders()
+
+    def add_task(self):
+        task = self.task_entry.get().strip()
+        reminder_hour = self.hour_combobox.get()
+        reminder_minute = self.minute_combobox.get()
+
+        if task == "" or reminder_hour == "HH" or reminder_minute == "MM":
+            messagebox.showwarning("Warning", "You must enter a task description and valid reminder time.")
+            return
+
+        # Create the reminder time
+        reminder_time = datetime.now().replace(hour=int(reminder_hour), minute=int(reminder_minute), second=0, microsecond=0)
+
+        # Store task with details
+        task_dict = {
+            'task': task,
+            'reminder_time': reminder_time,
+            'completed': False,
+            'notified': False
+        }
+        self.tasks.append(task_dict)
+
+        # Update the listbox display
+        display_text = f"{task} [Reminder at {reminder_time.strftime('%H:%M')}]"
+        self.listbox.insert(tk.END, display_text)
+
+        # Clear the entry fields
+        self.task_entry.delete(0, tk.END)
+        self.hour_combobox.set("HH")
+        self.minute_combobox.set("MM")
+
+    def complete_task(self):
+        try:
+            task_index = self.listbox.curselection()[0]
+            task = self.tasks[task_index]
+            if not task['completed']:
+                task['completed'] = True
+                self.listbox.delete(task_index)
+                display_text = f"{task['task']} (Completed) [Reminder at {task['reminder_time'].strftime('%H:%M')}]"
+                self.listbox.insert(tk.END, display_text)
+            else:
+                messagebox.showinfo("Info", "Task is already completed.")
+        except IndexError:
+            messagebox.showwarning("Warning", "You must select a task to complete.")
+
+    def delete_task(self):
+        try:
+            task_index = self.listbox.curselection()[0]
+            self.listbox.delete(task_index)
+            del self.tasks[task_index]
+        except IndexError:
+            messagebox.showwarning("Warning", "You must select a task to delete.")
+
+    def check_reminders(self):
+        now = datetime.now()
+        for task in self.tasks:
+            if (not task['completed']) and (not task['notified']):
+                if task['reminder_time'] <= now:
+                    self.notify_user(task['task'])
+                    task['notified'] = True
+        # Schedule the next check after 60 seconds
+        self.root.after(60000, self.check_reminders)
+
+    def notify_user(self, task):
+        # Show notification
+        messagebox.showinfo("Task Reminder", f"Reminder: {task}")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = TodoApp(root)
+    root.mainloop()
